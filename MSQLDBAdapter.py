@@ -6,6 +6,8 @@ def setupDB(databaseName):
                               host='127.0.0.1',
                               database=databaseName)
 
+    cnx.set_charset_collation('utf8mb4', 'utf8mb4_unicode_ci')
+
     return [cnx.cursor(), cnx]
 
 
