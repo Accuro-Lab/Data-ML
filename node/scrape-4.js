@@ -16,11 +16,17 @@
 // Dependencies:
 // npm install request request-promise jsdom @mozilla/readability
 //
+// History:
+// 2020-10-28 Updated to output a JSON _array_ containing one object.
+//            Maintains compatibility with other scraping script outputs.
+//
 
 const rp = require('request-promise');
 const fs = require('fs'); // use the File System API
 const { Readability } = require('@mozilla/readability');
 const { JSDOM } = require('jsdom');
+
+const resultArray = [];
 
 // Read command line arguments
 var url = process.argv[2];
@@ -40,8 +46,10 @@ rp(url)
     article.scrapeDate = (new Date()).toISOString();
     article.scrapeTimestamp = Date.now();
 
+    resultArray.push(article);  // output a JSON array containing one object
+
     // synchronous write to output files
-    fs.writeFileSync(outfile+'.json', JSON.stringify(article));
+    fs.writeFileSync(outfile+'.json', JSON.stringify(resultArray,null,2));
     fs.writeFileSync(outfile+'.html', article.content);
 
     // print extracted metadata to console
