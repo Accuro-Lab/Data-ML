@@ -4,6 +4,8 @@ For the haystack-api.py: The haystack_api allows to expose an API for the model 
 -> If you're using Linux (not MACOS) you can directly install all the packages that are used by Haystack using the requirements.txt in this folder
 --> Else, use --> pip install farm-haystack
    Note: this will also install fastapi and ucivorn that are used forward
+--> IF you get an error that no version of torch is compatible, do the following:
+	pip install torch -f https://download.pytorch.org/whl/torch_stable.html
 
 - How to use it :
 
