@@ -7,28 +7,29 @@ import re
 import numpy as np
 from bs4 import NavigableString
 
-from CDC_utils import get_soup, clean_text, get_init_article
+from utils import get_soup
+from CDC_utils import clean_text, get_init_article_cdc
 from CDC_utils import TAGS_TO_AVOID, CARDBODY_EXCERPTS
 
     
-def scrap_cdc_article(link, verbose=False):
+def scrap_cdc_article(link, idSource, verbose=False):
     soup = get_soup(link)
-    article = get_init_article(link)
+    article = get_init_article_cdc(link, idSource)
     if 'eid/article' in link:
         for p in soup.main.find_all(class_='header article-title'):
             title = p.get_text().replace('| CDC', '').strip()
             article['title'] = title
         for p in soup.main.find_all(id='authors'):
             byline = p.get_text().strip()
-            article['byline'] = byline
+            article['extraMeta']['byline'] = byline
         excerpt = []
         for p in soup.main.find_all(id='abstract'):
             excerpt.append(p.get_text().strip())
-        article['excerpt'] = clean_text(excerpt)
+        article['extraMeta']['excerpt'] = clean_text(excerpt)
         content = []
         for p in soup.main.find_all(id='mainbody'):
             content.append(p.get_text().strip())  
-        article['content'] = clean_text(content)
+        article['text'] = clean_text(content)
     else:
         soup_title = soup.title
         if soup_title is not None:
@@ -46,7 +47,7 @@ def scrap_cdc_article(link, verbose=False):
             for p in soup.main.find_all(class_="card-body"):
                 if p.get_text().startswith('What you need to know'):
                     excerpt.append(p.get_text())
-            article['excerpt'] = clean_text(excerpt)
+            article['extraMeta']['excerpt'] = clean_text(excerpt)
              # Find content
             content = []
             h3 = soup.main.find_all('h3')
@@ -72,8 +73,7 @@ def scrap_cdc_article(link, verbose=False):
                     # No text was found
                     for p in soup.main.find_all('p'):
                         content.append(p.get_text())
-    article['content'] = clean_text(content)
-    article['length'] = len(article['content'])
+    article['text'] = clean_text(content)
     if verbose:
         for k in ['title', 'url', 'excerpt', 'byline', 'length']:
             print('-{}: {}'.format(k, article[k]))
@@ -96,6 +96,11 @@ if __name__ == '__main__':
     assert args.input_list_path.endswith('.json')
     assert args.output_filename.endswith('.json')
 
+    # ID Source
+    with open('SOURCE_ID_DICT.json', 'rb') as fp:
+        source_id_dict = json.load(fp)
+    idSource = source_id_dict['CDC']['id']
+ 
     if 'DATE' in args.output_filename:
         date =  datetime.datetime.now().strftime("%Y%m%d")
         args.output_filename = args.output_filename.replace('DATE', date)
@@ -111,7 +116,7 @@ if __name__ == '__main__':
         input_list = json.load(fp) 
     print('Begin the scrapping:')
     for link in input_list['url']:
-        article = scrap_cdc_article(link, verbose=args.verbose)
+        article = scrap_cdc_article(link, idSource, verbose=args.verbose)
         articles.append(article)
     print('Saving results in {}'.format(output_file_path))
     with open(output_file_path, 'w') as fp:
