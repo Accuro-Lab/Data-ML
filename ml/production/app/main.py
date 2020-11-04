@@ -34,13 +34,13 @@ def load_documents():
     articles: List of str
       List of filepaths for each article from ARTICLES_FOLDER
     """
-    
+
     # define the path
     path_folder = pathlib.Path(ARTICLES_FOLDER)
 
     # define the pattern
     json_files = "*.json"
-    
+
     # extract absolute filepath for each of the articles
     articles = [
         json_file.absolute().as_posix() for json_file in path_folder.glob(json_files)
@@ -73,7 +73,7 @@ def process_documents(articles):
         except:
             print(article)
             continue
-            
+
         # Join textContent excerpt and title as they all provide
         # interesting information
         complete_text = (
@@ -157,10 +157,10 @@ def answer_question(d: Input):
             score: of answer,
             probability: of answer}
     """
-    
+
     # Get predictions for the input question
     # TODO: Clean question text before passing
-    # it to the model 
+    # it to the model
     prediction = finder.get_answers(
         question=d.question, top_k_retriever=3, top_k_reader=1
     )
@@ -168,7 +168,7 @@ def answer_question(d: Input):
     answer = prediction["answers"][0]["answer"]
     probability = prediction["answers"][0]["probability"]
     score = prediction["answers"][0]["score"]
-    
+
     return {
         "question": d.question,
         "answer": answer,
