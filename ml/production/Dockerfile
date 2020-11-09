@@ -6,5 +6,3 @@ COPY ./data /data
 CMD ['export', "MKL_SERVICE_FORCE_INTEL=1"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
 
-
-ssh -i "accuroServer.pem" ubuntu@
