@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import urllib.request
 from urllib.request import Request, urlopen
 
-MANDATORY_KEYS = ['title', 'text', 'uri', 'timestamp', 'scrapeDate', 'id', 'idSource']
+MANDATORY_KEYS = ['title', 'text', 'uri', 'scrapeTimestamp', 'scrapeDate', 'id', 'idSource']
 
 def get_soup(url):
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -19,9 +19,9 @@ def get_init_article(link, idSource):
     article['title'] = 'null'
     article['uri'] = link
     scrape_time = datetime.datetime.utcnow()
-    article['timestamp'] = int(datetime.datetime.timestamp(scrape_time))
+    article['scrapeTimestamp'] = int(datetime.datetime.timestamp(scrape_time))
     article['scrapeDate'] = scrape_time.strftime("%Y-%m-%dT%H:%M:%S")
-    hashableId = (link+str(article['timestamp'])).encode()
+    hashableId = (link+str(article['scrapeTimestamp'])).encode()
     article['id'] = hashlib.sha224(hashableId).hexdigest()
     article['idSource'] = idSource
     # Optional
