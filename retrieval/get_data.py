@@ -1,163 +1,123 @@
 import os
 import json
+import glob
 
 from utils import check_data_format
-"""// Schema : manifest_object
+
+
+"""
+Manifest object:
+// Schema : manifest_object
 // Purpose :
     Specifies file locations and documents to be included or excluded from
     the model. A file containing a single manifest_object is placed in
     the parent directory of the document store hierarchy.
 {
   "include" : {
-    "pathnames" : Array.of(String) // List of Unix path and filename
-                                   // specifiers. Wild cards allowed.
+    "pathnames" : Array.of(String) // List of Unix relative paths (from the 
+                                   // data directory). 
    }
   "exclude" : {
-    "pathnames" : Array.of(String) // List of Unix path and filename 
-                                   // specifiers. Wild cards allowed.
+    "pathnames" : Array.of(String) // List of Unix relative paths (from the 
+                                   // data directory). 
     "id" : Array.of(String)        // id of document to exclude
     "uri" : Array.of(String)       // URI of document to exclude
-    "idSource" : Array.of(String)  // Exclude all docs published by source
+    "idSource" : Array.of(String)  // Exclude all docs published by source.
+                                   // Overides the a potential "include *"
   }
-}
-
-    {
-  // --[ mandatory ]---
-  "title" : String,  // doc title in UTF-8
-  "text" : String,   // doc body in UTF-8
-  "uri" : String,    // permalink or a self-created URI
-  "timestamp" : Number.min(0), // Unix timestamp in UTC at time of scrape
-  "date" : String,   // timestamp, ISO 8601 format (eg: 2020-11-01T09:45:44Z)
-  "id" : String,  // SHA-256 hash of "uri"+"timestamp"
-  "idSource" : String, // Accurolab code name for the source
-
-  // --[ optional ]--
-  "html" : String,   // HTML of document body [null if unused] 
-  "pubDate" : string  // publication date given by the source [null if unused] 
-
-  // object containing source- and scraper-dependent 
-  // additional metadata [null if unused]
-  "extraMeta" : {
-    "someItem" : String,  // [optional] exmaple item
-    "anotherItem" : Number // [optional] exmaple item
-  }
-}
-
-
-manifest = {
-    'source_id_1' : 
-    {
-        'include': [list_of_paths or 'all' or 'none'],
-        'exclude': [list_of_paths or 'all' or 'none']
-    },
-    'source_id_2': 
-    {
-        'include': [list_of_paths or 'all' or 'none'],
-        'exclude': [list_of_paths or 'all' or 'none']
-    }
 }
 """
 
+class DataFilter(object):
+    """
+    Object which filters the data according to the manifest
+    file.
+    """
+    def __init__(self, manifest, additional_keys, verbose):
+        self.ignore = {}
+        self.ignore['id'] = manifest['exclude'].get('id', [])
+        self.ignore['uri'] = manifest['exclude'].get('uri', [])
+        self.ignore['idSource'] = manifest['exclude'].get('idSource', [])
+        self.ignore_filenames = []
+        for pathname in manifest['exclude'].get('pathnames', []):
+            for filename in glob.glob(pathname):
+                self.ignore_filenames.append(filename)
+        self.additional_keys = additional_keys
+        self.verbose = verbose
+    
+    def read_file(self, filename):
+        if filename in self.ignore_filenames:
+            return False
+        else:
+            return True
+    
+    def add(self, data):
+        if not check_data_format(data, self.additional_keys):
+            return False
+        else:
+            for key, values in self.ignore.items():
+                if data[key] in values:
+                    if self.verbose:
+                        print('{} in the {} to ignore'.format(data[key], key))
+                    return False
+            return True
+
 
 def get_data(manifest, data_dir, additional_keys, verbose=False):
-    data = []
-    for source_id, source_details in manifest.items():
-        print(source_id)
-        directory_path = os.path.join(data_dir, source_id)
-        to_include = source_details['include']
-        keep = 'some'
-        if len(to_include) == 1:
-            if to_include[0] == 'all':
-                keep = 'all'
-            elif to_include[0] == 'none':
-                keep = 'none'
-        to_exclude = source_details['exclude']
-        exclude = 'some'
-        if len(to_exclude) == 1:
-            if to_exclude[0] == 'all':
-                exclude = 'all'
-            elif to_exclude[0] == 'none':
-                exclude = 'none'
-        keep_all, exclude_all = False, False
-        if keep == 'all' and exclude == 'all':
-            if verbose:
-                print('Error in the manifest for {} - ignoring this source.'.format(source_id))
-            continue
-        elif keep == 'all':
-            if exclude == 'none':
-                keep_all = True
-            else:
-                # Include by default
-                include_by_default =  True
-                ids_to_include = {}
-                for unique_id in to_exclude:
-                    ids_to_include[unique_id] = False
-        elif keep == 'none':
-            if exclude == 'all':
-                exclude_all = True
-            else:
-                include_by_default = False
-                ids_to_include = {}
-                for unique_id in to_include:
-                    ids_to_include[unique_id] = True
+    os.chdir(data_dir)
+    # Initialise the filter
+    data_filter = DataFilter(manifest, additional_keys, verbose)
+    dataset = []
+    for pathname in manifest['include']['pathnames']:
+        # Sanity check
+        if pathname in manifest['exclude'].get('pathnames', []):
+            print('Error: {} both in exclude/include pathnames.'.format(pathname))
+            print('Please double-check the manifest object.')
+            exit()
         else:
-            assert keep == 'some' and exclude == 'some'
-            include_by_default = False ##Edge case, to discuss
-            ids_to_include = {}
-            for unique_id in to_include:
-                ids_to_include[unique_id] = True
-            for unique_id in to_exclude:
-                ids_to_include[unique_id] = False
-
-        if exclude_all:
-            # Ignore this source
-            continue
-        
-        for json_filename in os.listdir(directory_path):
-            if json_filename.startswith('articles'):
-                with open (os.path.join(directory_path, json_filename), 'rb') as fp:
-                    articles = json.load(fp)
-                for article in articles:
-                    if not check_data_format(article, additional_keys):
-                        continue
-                    article_id = article.get('id')
-                    if keep_all:
-                        data.append(article)
-                        if verbose:
-                            print("append {}".format(article_id))
-                    else:
-                        include = ids_to_include.get(article_id, include_by_default)
-                        if include:
-                            data.append(article)
-                            if verbose:
-                                print("(+ {})".format(article_id))
-                        elif verbose:
-                            print("(\ {})".format(article_id))
-    return data
-
+            if verbose:
+                print('Get {}'.format(pathname))
+            for filename in glob.glob(pathname):
+                if data_filter.read_file(filename):
+                    with open (os.path.join(filename), 'rb') as fp:
+                        data_file = json.load(fp)
+                    for data in data_file:
+                        if data_filter.add(data):
+                            dataset.append(data)
+                elif verbose:
+                    print('Ignore this file : {}'.format(filename))
+    return dataset
     
             
 if __name__ == '__main__':
     data_dir = '/mnt/Documents/accurolab/toy_data_dir'
     additional_keys = []
     MANIFEST = {
-        'Wiki' : 
-        {
-            'include': ['all'],
-            'exclude': ['none']
+        'include' : {
+            'pathnames': [
+                './CDC/articles*.json',
+                './Wikipedia/articles*.json',
+                './new_format/articles*.json'
+            ]
         },
-        'CKB-articles-scrape': 
-        {
-            'include': ['none'],
-            'exclude': ['all']
-        },
-        'CDC': 
-        {
-            'include': ['all'],
-            'exclude': ['7bf27e80f51ccb80a74f9aec045caec603400472275c40bb6f5cea77',
-                        '0af4e0df8d6619df920a181aacc80903e075fc1a88210d4290c7e918']
-        }
+        'exclude': {
+            'pathnames': [
+                '.new_format/articles-learnaboutcovid-53-20201020-nf.json',
+                './CKB/articles-jhk.json'
+            ],
+            'uri': [
+                'https://learnaboutcovid19.org/article1',
+                'https://www.uchicagomedicine.org/'
+            ],
+            'idSource': [
+                'poynter',
+                'ecdc'
+            ],
+            'id': [
+                'f26313f3188a9ca6121d9de7e3cf8700b9808fb2bbc7aff011f7e091591a0563'
+            ]
+        } 
     }
     data = get_data(MANIFEST, data_dir, additional_keys, verbose=True)
-
+    print(len(data))
 
