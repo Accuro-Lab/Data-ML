@@ -18,10 +18,16 @@ import os
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+import sys
+# append current python modules' folder path
+sys.path.append('/mnt/c/Users/grace/Documents/accurolab/Data-ML/retrieval')
+
+import get_data as ret
+import utils
 
 # HAYSTACK (same as our Colab Proof of concept)
 PROJECT_DIRECTORY = os.getcwd()
-ARTICLES_FOLDER = PROJECT_DIRECTORY + "/data/CKB-articles-scrape/"
+ARTICLES_FOLDER = PROJECT_DIRECTORY + "/data"
 
 # In the bash we have to set export MKL_SERVICE_FORCE_INTEL=1
 
@@ -136,42 +142,65 @@ class Input(BaseModel):
     question: str
 
 
-app = FastAPI()
+# app = FastAPI()
 
-# Should only execute at moment of load
-finder = feed_documents_to_model()
+# # Should only execute at moment of load
+# finder = feed_documents_to_model()
 
-
-@app.put("/predict")
-def answer_question(d: Input):
-    """Given a question at input, provide answer using the finder model
-
-    Parameters
-    ----------
-    d: d.question str
-
-    Returns
-    -------
-    a dict: {question: provided by user,
-            answer: text as answer,
-            score: of answer,
-            probability: of answer}
-    """
-
-    # Get predictions for the input question
-    # TODO: Clean question text before passing
-    # it to the model
-    prediction = finder.get_answers(
-        question=d.question, top_k_retriever=3, top_k_reader=1
-    )
-    # TODO: Filter out the answer if it is not reliable
-    answer = prediction["answers"][0]["answer"]
-    probability = prediction["answers"][0]["probability"]
-    score = prediction["answers"][0]["score"]
-
-    return {
-        "question": d.question,
-        "answer": answer,
-        "score": score,
-        "probability": probability,
+# Test get data
+MANIFEST = {
+    'Wiki' : 
+    {
+        'include': ['all'],
+        'exclude': ['none']
+    },
+    'CKB-articles-scrape': 
+    {
+        'include': ['all'],
+        'exclude': ['none']
+    },
+    'CDC': 
+    {
+        'include': ['all'],
+        'exclude': ['none']
     }
+}
+articles = ret.get_data(MANIFEST, ARTICLES_FOLDER,[], verbose=True)
+
+print(len(articles))
+
+
+
+# @app.put("/predict")
+# def answer_question(d: Input):
+#     """Given a question at input, provide answer using the finder model
+
+#     Parameters
+#     ----------
+#     d: d.question str
+
+#     Returns
+#     -------
+#     a dict: {question: provided by user,
+#             answer: text as answer,
+#             score: of answer,
+#             probability: of answer}
+#     """
+
+#     # Get predictions for the input question
+#     # TODO: Clean question text before passing
+#     # it to the model
+#     prediction = finder.get_answers(
+#         question=d.question, top_k_retriever=3, top_k_reader=1
+#     )
+#     # TODO: Filter out the answer if it is not reliable
+#     answer = prediction["answers"][0]["answer"]
+#     probability = prediction["answers"][0]["probability"]
+#     score = prediction["answers"][0]["score"]
+
+#     return {
+#         "question": d.question,
+#         "answer": answer,
+#         "score": score,
+#         "probability": probability,
+#     }
