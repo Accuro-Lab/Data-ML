@@ -35,9 +35,7 @@ ARTICLES_FOLDER = PROJECT_DIRECTORY + "/data"
 MANIFEST = {
     'include' : {
         'pathnames': [
-            './CDC/articles*.json',
-            './Wikipedia/articles*.json',
-            './CKB-articles-scrape/articles*.json'
+            './new_format/articles*.json',
         ]
     } ,
     'exclude' : {
