@@ -30,11 +30,26 @@ PROJECT_DIRECTORY = os.getcwd()
 ARTICLES_FOLDER = PROJECT_DIRECTORY + "/data"
 
 # In the bash we have to set export MKL_SERVICE_FORCE_INTEL=1
+# MANIFEST of data to be loaded
+# TODO: Read from a file
+MANIFEST = {
+    'include' : {
+        'pathnames': [
+            './CDC/articles*.json',
+            './Wikipedia/articles*.json',
+            './CKB-articles-scrape/articles*.json'
+        ]
+    } ,
+    'exclude' : {
+        'pathnames': [
 
+        ]
+    }
+}
 
 def load_documents():
     """Retrieves scraped articles filepaths from ARTICLES_FOLDER
-
+    DEPRECATED
     Returns
     -------
     articles: List of str
@@ -61,43 +76,37 @@ def process_documents(articles):
     Parameters
     ----------
     articles : list of str
-        List of articles file path
+        List of articles dictionaries
 
     Returns
     -------
     dicts_textContent : dict
         Dictionary containing the required structure used by the models:
         {"text": article text content
-         "meta": {"name": article title, "url": article url}}
+         "meta": {"name": article title, "uri": article url, 
+                "pubDate":publication date (optional)}}
     """
 
     dicts_textContent = []
 
     for article in articles:
-        try:
-            df_article = pd.read_json(article)
-        except:
-            print(article)
-            continue
-
-        # Join textContent excerpt and title as they all provide
+        # Join text and title as they all provide
         # interesting information
         complete_text = (
-            df_article["textContent"] + df_article["excerpt"] + df_article["title"]
+            article["text"] + article["title"]
         )
-        list_textContent = complete_text.tolist()
 
         # For each of the texts format in form of dictionary
-        for i in range(len(list_textContent)):
-            dicts_textContent.append(
-                {
-                    "text": df_article["textContent"][i],
-                    "meta": {
-                        "name": df_article["title"][i],
-                        "url": df_article["url"][i],
-                    },
-                }
-            )
+        dicts_textContent.append(
+            {
+                "text": complete_text,
+                "meta": {
+                    "name": article["title"],
+                    "uri": article["uri"],
+                    "pubDate": article["pubDate"]
+                },
+            }
+        )
 
     return dicts_textContent
 
@@ -121,7 +130,7 @@ def feed_documents_to_model(model_name="deepset/roberta-base-squad2-covid"):
     # Initialize in memory Document Store
     document_store = InMemoryDocumentStore()
     # Load articles and format it as dictionary
-    articles = load_documents()
+    articles = ret.get_data(MANIFEST, ARTICLES_FOLDER,[])
     dicts_textContent = process_documents(articles)
     # Store the dictionary with articles content in the Document Store
     document_store.write_documents(dicts_textContent)
@@ -142,65 +151,44 @@ class Input(BaseModel):
     question: str
 
 
-# app = FastAPI()
+app = FastAPI()
 
-# # Should only execute at moment of load
-# finder = feed_documents_to_model()
+#  Should only execute at moment of load
+finder = feed_documents_to_model()
 
-# Test get data
-MANIFEST = {
-    'Wiki' : 
-    {
-        'include': ['all'],
-        'exclude': ['none']
-    },
-    'CKB-articles-scrape': 
-    {
-        'include': ['all'],
-        'exclude': ['none']
-    },
-    'CDC': 
-    {
-        'include': ['all'],
-        'exclude': ['none']
+@app.put("/predict")
+def answer_question(d: Input):
+    """Given a question at input, provide answer using the finder model
+
+    Parameters
+    ----------
+    d: d.question str
+
+    Returns
+    -------
+    a dict: {question: provided by user,
+            answer: text as answer,
+            score: of answer,
+            probability: of answer,
+            TODO: add url and published date to answers
+            url: article url,
+            pubDate: article published date}
+    """
+
+    # Get predictions for the input question
+    # TODO: Clean question text before passing
+    # it to the model
+    prediction = finder.get_answers(
+        question=d.question, top_k_retriever=3, top_k_reader=1
+    )
+    # TODO: Filter out the answer if it is not reliable
+    answer = prediction["answers"][0]["answer"]
+    probability = prediction["answers"][0]["probability"]
+    score = prediction["answers"][0]["score"]
+
+    return {
+        "question": d.question,
+        "answer": answer,
+        "score": score,
+        "probability": probability,
     }
-}
-articles = ret.get_data(MANIFEST, ARTICLES_FOLDER,[], verbose=True)
-
-print(len(articles))
-
-
-
-# @app.put("/predict")
-# def answer_question(d: Input):
-#     """Given a question at input, provide answer using the finder model
-
-#     Parameters
-#     ----------
-#     d: d.question str
-
-#     Returns
-#     -------
-#     a dict: {question: provided by user,
-#             answer: text as answer,
-#             score: of answer,
-#             probability: of answer}
-#     """
-
-#     # Get predictions for the input question
-#     # TODO: Clean question text before passing
-#     # it to the model
-#     prediction = finder.get_answers(
-#         question=d.question, top_k_retriever=3, top_k_reader=1
-#     )
-#     # TODO: Filter out the answer if it is not reliable
-#     answer = prediction["answers"][0]["answer"]
-#     probability = prediction["answers"][0]["probability"]
-#     score = prediction["answers"][0]["score"]
-
-#     return {
-#         "question": d.question,
-#         "answer": answer,
-#         "score": score,
-#         "probability": probability,
-#     }
