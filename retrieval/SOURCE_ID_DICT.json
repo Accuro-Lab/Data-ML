@@ -4,10 +4,16 @@
      "id": 1,
      "link": "https://wwwnc.cdc.gov/eid/article/26/11/20-1074_article"
     },
-    "Wiki":
+    "Wikipedia":
     {
     "fullName": "Wikipedia",
     "id": 2,
     "link": "https://www.wikipedia.org/"
+    },
+    "Poynter":
+    {
+    "fullName": "Poynter",
+    "id": 3,
+    "link": "https://www.poynter.org/ifcn-covid-19-misinformation/"
     }
 }
