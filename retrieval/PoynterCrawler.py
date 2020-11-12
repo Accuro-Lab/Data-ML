@@ -6,11 +6,12 @@ import numpy as np
 from bs4 import NavigableString
 import argparse
 
-from Poynter_utils import get_soup, get_unique_id, clean_text
+from utils import get_soup
+from Poynter_utils import clean_text, get_init_article_poynter
 
-    
+
 def scrap_one_article(article_data):
-    url_poynter_article = article_data['url_poynter']
+    url_poynter_article = article_data['uri']
     soup_poynter_article = get_soup(url_poynter_article)
     for p in soup_poynter_article.main.article.find_all('p'):
         t = p.get_text()
@@ -28,13 +29,12 @@ def scrap_one_article(article_data):
         elif 'Read the Full Article' in a.get_text():
             url_source_article = a.get('href')
     
-    article_data['explanation'] = clean_text(explanation)
-    article_data['origin'] = clean_text(origin)
-    article_data['checker'] = clean_text(checker)
-    article_data['date'] = date
-    article_data['country'] = clean_text(country)
-    article_data['url_source'] = url_source_article
-    proposed_id = get_unique_id(article_data['summary'], article_data['date'])
+    article_data['extraMeta']['explanation'] = clean_text(explanation)
+    article_data['extraMeta']['origin'] = clean_text(origin)
+    article_data['extraMeta']['checker'] = clean_text(checker)
+    article_data['extraMeta']['date'] = date
+    article_data['extraMeta']['country'] = clean_text(country)
+    article_data['extraMeta']['url_source'] = url_source_article
     """
     language = get_language(url_source_article)
     article_data['language'] = language
@@ -48,14 +48,15 @@ def scrap_one_article(article_data):
                 body_text = p.get_text()
     else:
         body_text = 'NONE-{}'.format(language)"""
-    return article_data, proposed_id
+    return article_data
 
 class PoynterCrawler():
-    def __init__(self, base_url, base_site, query_mark, name):
+    def __init__(self, base_url, base_site, query_mark, name, idSource):
         self.base_url = base_url
         self.base_site = base_site
         self.query_mark = query_mark
         self.name = name
+        self.idSource = idSource
         
         print('Querying page {} from {}...'.format(self.base_url, self.base_site))
         soup = get_soup(base_url)
@@ -91,9 +92,9 @@ class PoynterCrawler():
     def scrap_page(self, page_number, verbose, page_facts=None, output_dir=None):
         print('-Page {}...'.format(page_number))
         if page_facts is None:
-            page_facts = defaultdict(dict)
+            page_facts = []
         else:
-            assert isinstance(page_facts, defaultdict)
+            assert isinstance(page_facts, list)
         page_url = '{}page/{}/'.format(self.base_url, page_number)
         soup = get_soup(page_url)
         for link_element in soup.find_all('a'):
@@ -105,35 +106,20 @@ class PoynterCrawler():
                 veracity = link_element.span.string
                 summary = link_element.text.replace(veracity, '')
                 fact = [url_poynter_article, summary]
-                article_data = {
-                    'summary': clean_text(summary),
-                    'veracity': clean_text(veracity.replace(':','')),
-                    'explanation': None,
-                    'origin': None,
-                    'checker': None,
-                    'date': None,
-                    'country': None,
-                    'url_source': None,
-                    'url_poynter': url_poynter_article}    
-                article_data, proposed_id = scrap_one_article(article_data)
-                count = 0
-                while True:
-                    if page_facts.get(proposed_id, None) is None:
-                        page_facts[proposed_id] = article_data
-                        if verbose:
-                            print(verbose)
-                            print('\n')
-                            print(proposed_id)
-                            print(article_data)
-                        break
-                    else:
-                        proposed_id = '{}_{}'.format(proposed_id.split('_')[0], count)
-                        count += 1
+                article_data = get_init_article_poynter(url_poynter_article, idSource)
+                article_data['extraMeta']['summary'] =  clean_text(summary)
+                article_data['extraMeta']['veracity'] = clean_text(veracity.replace(':',''))
+                article_data = scrap_one_article(article_data)
+                page_facts.append(article_data)
+                if verbose:
+                    print('\n')
+                    print(article_data)
                 if output_dir is not None:
                     assert os.path.isdir(output_dir)
-                    with open(os.path.join(output_dir, '{}.json'.format(proposed_id)), 'w') as fp:
+                    article_id = article_data['id']
+                    with open(os.path.join(output_dir, '{}.json'.format(article_id)), 'w') as fp:
                         json.dump(article_data, fp, indent=0)
-                    print('Wrote at {}!'.format(os.path.join(output_dir, proposed_id)))
+                    print('Wrote at {}!'.format(os.path.join(output_dir, article_id)))
         if output_dir is not None:
             # Write json
             with open(os.path.join(output_dir, 'page{}.json'.format(page_number)), 'w') as fp:
@@ -145,7 +131,7 @@ class PoynterCrawler():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Crawl poynter and write all the summaries.')
-    parser.add_argument('--verbose', type=bool, required=False, default=False)
+    parser.add_argument('--verbose', type=bool, required=False, default=True)
     parser.add_argument('--page_min', type=int, required=False, default=None)
     parser.add_argument('--page_max', type=int, required=False, default=None)
     parser.add_argument('--page', type=int, required=False, default=1)
@@ -153,10 +139,17 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, required=False, 
         default='/mnt/Documents/accurolab/data/poynter/summaries')
     args = parser.parse_args()
+
+    # ID Source
+    with open('SOURCE_ID_DICT.json', 'rb') as fp:
+        source_id_dict = json.load(fp)
+    idSource = source_id_dict['Poynter']['id']
+
     poynter_crawler = PoynterCrawler(base_url='https://www.poynter.org/ifcn-covid-19-misinformation/', 
                 base_site='https://www.poynter.org/', 
                 query_mark='?ifcn_misinformation',
-                name='Poynter')
+                name='Poynter',
+                idSource=idSource)
     if args.all:
         print('Scrapping all pages!')
         all_facts = poynter_crawler.scrap_all(args.verbose, output_dir=args.output_dir)
