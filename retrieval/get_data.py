@@ -3,7 +3,7 @@ import json
 import glob
 
 from utils import check_data_format
-
+import argparse
 
 """
 Manifest object:
@@ -90,7 +90,13 @@ def get_data(manifest, data_dir, additional_keys, verbose=False):
     
             
 if __name__ == '__main__':
-    data_dir = '/mnt/Documents/accurolab/toy_data_dir'
+    parser = argparse.ArgumentParser(description='Loading data function.')
+    parser.add_argument('--verbose', type=bool, required=False, default=True)
+    parser.add_argument('--data_dir', type=str, required=False, 
+        default='/mnt/Documents/accurolab/toy_data_dir')
+    parser.add_argument('--additional_keys', type=list, required=False, default=[])
+    args = parser.parse_args()
+
     additional_keys = []
     MANIFEST = {
         'include' : {
@@ -118,6 +124,7 @@ if __name__ == '__main__':
             ]
         } 
     }
-    data = get_data(MANIFEST, data_dir, additional_keys, verbose=True)
-    print(len(data))
+    data = get_data(MANIFEST, args.data_dir, args.additional_keys, verbose=args.verbose)
+    if args.verbose:
+        print('{} data loaded.'.format(len(data)))
 

@@ -5,7 +5,8 @@ from bs4 import BeautifulSoup
 import urllib.request
 from urllib.request import Request, urlopen
 
-MANDATORY_KEYS = ['title', 'text', 'uri', 'scrapeTimestamp', 'scrapeDate', 'id', 'idSource']
+MANDATORY_KEYS = ['title', 'text', 'uri', 'scrapeTimestamp', 'scrapeDate', 'id']
+# Remove idSource
 
 def get_soup(url):
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
