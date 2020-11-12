@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 import sys
-# append current python modules' folder path
+# append Retrieval modules' folder path here
 sys.path.append('/mnt/c/Users/grace/Documents/accurolab/Data-ML/retrieval')
 
 import get_data as ret
