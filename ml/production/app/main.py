@@ -183,10 +183,16 @@ def answer_question(d: Input):
     answer = prediction["answers"][0]["answer"]
     probability = prediction["answers"][0]["probability"]
     score = prediction["answers"][0]["score"]
+    url = prediction["answers"][0]["meta"]["uri"]
+    pub_date = prediction["answers"][0]["meta"]["pubDate"]
+    article_name = prediction["answers"][0]["meta"]["name"]
 
     return {
         "question": d.question,
         "answer": answer,
         "score": score,
         "probability": probability,
+        "url": url,
+        "pubDate": pub_date,
+        "articleName": article_name,
     }
