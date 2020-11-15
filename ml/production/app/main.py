@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 import sys
 # append Retrieval modules' folder path here
-sys.path.append('~/Data-ML/retrieval')
+sys.path.append('/retrieval')
 
 import get_data as ret
 import utils
