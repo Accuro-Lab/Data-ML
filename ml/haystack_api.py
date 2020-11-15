@@ -168,9 +168,9 @@ def answer_question(d: Input):
             answer: text as answer,
             score: of answer,
             probability: of answer,
-            TODO: add url and published date to answers
             url: article url,
-            pubDate: article published date}
+            pubDate: article published date,
+            articleName: article name}
     """
 
     # Get predictions for the input question
@@ -183,10 +183,16 @@ def answer_question(d: Input):
     answer = prediction["answers"][0]["answer"]
     probability = prediction["answers"][0]["probability"]
     score = prediction["answers"][0]["score"]
+    url = prediction["answers"][0]["meta"]["uri"]
+    pub_date = prediction["answers"][0]["meta"]["pubDate"]
+    article_name = prediction["answers"][0]["meta"]["name"]
 
     return {
         "question": d.question,
         "answer": answer,
         "score": score,
         "probability": probability,
+        "url": url,
+        "pubDate": pub_date,
+        "articleName": article_name,
     }
