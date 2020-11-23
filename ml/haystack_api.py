@@ -170,7 +170,8 @@ finder_elastic = feed_documents_to_model(dev=False)
 
 @app.put("/predict")
 def answer_question(d: Input):
-    """Given a question at input, provide answer using the finder model
+    """ For InMemory document Store and TFIDF
+    Given a question at input, provide answer using the finder model
 
     Parameters
     ----------
@@ -213,7 +214,8 @@ def answer_question(d: Input):
 
 @app.put("/predict2")
 def answer_question_dense(d: Input):
-    """Given a question at input, provide answer using the finder model
+    """For DenseRetriever using ElasticSearch
+    Given a question at input, provide answer using the finder model
 
     Parameters
     ----------
