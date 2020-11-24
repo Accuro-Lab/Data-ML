@@ -5,7 +5,9 @@ from haystack.reader.farm import FARMReader
 from haystack.reader.transformers import TransformersReader
 from haystack.utils import print_answers
 from haystack.document_store.memory import InMemoryDocumentStore
-from haystack.retriever.sparse import TfidfRetriever
+from haystack.document_store.elasticsearch import ElasticsearchDocumentStore
+from haystack.retriever.sparse import TfidfRetriever, ElasticsearchRetriever
+
 
 import pathlib
 import pandas as pd
@@ -109,7 +111,8 @@ def process_documents(articles):
     return dicts_textContent
 
 
-def feed_documents_to_model(model_name="deepset/roberta-base-squad2-covid"):
+def feed_documents_to_model(model_name="deepset/roberta-base-squad2-covid",
+                            dev = True):
     """Feeds documents to model and returns a model ready to make predictions
 
     Parameters
@@ -126,7 +129,11 @@ def feed_documents_to_model(model_name="deepset/roberta-base-squad2-covid"):
     """
 
     # Initialize in memory Document Store
-    document_store = InMemoryDocumentStore()
+    if dev == True:
+        document_store = InMemoryDocumentStore()
+    else:
+        document_store = ElasticsearchDocumentStore(host="localhost", username="", password="", index="document")
+
     # Load articles and format it as dictionary
     articles = ret.get_data(MANIFEST, ARTICLES_FOLDER,[])
     dicts_textContent = process_documents(articles)
@@ -134,7 +141,11 @@ def feed_documents_to_model(model_name="deepset/roberta-base-squad2-covid"):
     document_store.write_documents(dicts_textContent)
     # Retriever chooses what is the subset of documents that are relevant
     # many techniques are possible: for dev purposes TfidfRetriever is faster
-    retriever = TfidfRetriever(document_store=document_store)
+    if dev == True:
+        retriever = TfidfRetriever(document_store=document_store)
+    else:
+        retriever = ElasticsearchRetriever(document_store=document_store)
+        document_store.update_embeddings(retriever)
     # Reader provides interface to use the pre trained transformers
     # by default we're using the roberta
     reader = FARMReader(model_name_or_path=model_name, use_gpu=False)
@@ -151,12 +162,17 @@ class Input(BaseModel):
 
 app = FastAPI()
 
+# Start ElasticSearch docker first
+
 #  Should only execute at moment of load
-finder = feed_documents_to_model()
+finder_in_memory = feed_documents_to_model(dev=True)
+finder_elastic = feed_documents_to_model(dev=False)
+
 
 @app.put("/predict")
 def answer_question(d: Input):
-    """Given a question at input, provide answer using the finder model
+    """ For InMemory document Store and TFIDF
+    Given a question at input, provide answer using the finder model
 
     Parameters
     ----------
@@ -168,15 +184,59 @@ def answer_question(d: Input):
             answer: text as answer,
             score: of answer,
             probability: of answer,
-            TODO: add url and published date to answers
             url: article url,
-            pubDate: article published date}
+            pubDate: article published date,
+            articleName: article name}
     """
 
     # Get predictions for the input question
     # TODO: Clean question text before passing
     # it to the model
-    prediction = finder.get_answers(
+    prediction = finder_in_memory.get_answers(
+        question=d.question, top_k_retriever=3, top_k_reader=1
+    )
+    # TODO: Filter out the answer if it is not reliable
+    answer = prediction["answers"][0]["answer"]
+    probability = prediction["answers"][0]["probability"]
+    score = prediction["answers"][0]["score"]
+    url = prediction["answers"][0]["meta"]["uri"]
+    pub_date = prediction["answers"][0]["meta"]["pubDate"]
+    article_name = prediction["answers"][0]["meta"]["name"]
+
+    return {
+        "question": d.question,
+        "answer": answer,
+        "score": score,
+        "probability": probability,
+        "url": url,
+        "pubDate": pub_date,
+        "articleName": article_name,
+    }
+
+@app.put("/predict2")
+def answer_question_dense(d: Input):
+    """For DenseRetriever using ElasticSearch
+    Given a question at input, provide answer using the finder model
+
+    Parameters
+    ----------
+    d: d.question str
+
+    Returns
+    -------
+    a dict: {question: provided by user,
+            answer: text as answer,
+            score: of answer,
+            probability: of answer,
+            url: article url,
+            pubDate: article published date,
+            articleName: article name}
+    """
+
+    # Get predictions for the input question
+    # TODO: Clean question text before passing
+    # it to the model
+    prediction = finder_elastic.get_answers(
         question=d.question, top_k_retriever=3, top_k_reader=1
     )
     # TODO: Filter out the answer if it is not reliable
