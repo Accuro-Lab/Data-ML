@@ -1,0 +1,78 @@
+<html>
+<!--
+  Bare bones web UI to interact with the model API
+  ITL 2020-11-21
+
+  Note: It must be served from the same domain as the API itself
+  to avoid cross site scripting issues.
+-->
+
+<head>
+  <style>
+  textarea {
+    resize: none;
+  }
+  </style>
+</head>
+
+<body>
+  <p>Accurolab QA model test | chatui.html </p>
+  <p></p>
+  <form name="chat">
+    <textarea name="answer" style="overflow:scroll; margin: 0px; width: 600px; height: 400px;"></textarea>
+    </br>Please type a question and hit return to submit:</br>
+    <textarea name="question" onkeyup="detectEnterKey(event);" style="overflow:auto; margin: 0px; width: 600px; height: 60px;"></textarea>
+    </br>
+    <button type="button" onclick="submitQuestion();" >Submit</button>
+  </form>
+</body>
+
+<script type="text/javascript">
+  function submitQuestion(){
+
+    // get user entry from textarea
+    var userQuestion = document.chat.question.value;
+
+    // set up the api call
+    const url_api = "http://ec2-3-139-62-97.us-east-2.compute.amazonaws.com:4000/predict";
+    var data={"question":userQuestion};
+    var params={
+        headers:{"content-type":"application/json; charset=UTF-8"},
+        body:JSON.stringify(data),
+        method:"PUT"
+    };
+
+    // print user question in output area
+    printAnswer('> '+userQuestion+'\n\n');
+    // clear the input area
+    document.chat.question.value = '';
+
+    // call the model api
+    fetch(url_api,params)
+      .then(resp =>{ return resp.json() })
+      .then(data =>{
+        // print results to output area
+        for (key in data){
+          if (key != 'question'){
+            printAnswer(key+': '+data[key]+'\n');
+          }
+        }
+        printAnswer("\n");
+      });
+}
+
+  function detectEnterKey(event){
+    if (event.key === 'Enter') {
+      submitQuestion();
+    }
+  }
+
+  function printAnswer(str){
+    // print results to output textarea
+    document.chat.answer.value += str
+    // scroll textarea to bottom
+    document.chat.answer.scrollTop = document.chat.answer.scrollHeight;
+  }
+</script>
+
+</html>
