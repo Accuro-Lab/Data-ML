@@ -45,6 +45,19 @@ MANIFEST = {
     }
 }
 
+# Define webhook response format
+WEBHOOK_RESPONSE = {
+  "fulfillmentMessages": [
+    {
+      "text": {
+        "text": [
+          "Text response from webhook"
+        ]
+      }
+    }
+  ]
+}
+
 def load_documents():
     """Retrieves scraped articles filepaths from ARTICLES_FOLDER
     DEPRECATED
@@ -154,13 +167,12 @@ app = FastAPI()
 #  Should only execute at moment of load
 finder = feed_documents_to_model()
 
-@app.put("/predict")
-def answer_question(d: Input):
+def answer_question(question): # @API_refactor to allow for more API endpoints calling the same answer_question method
     """Given a question at input, provide answer using the finder model
 
     Parameters
     ----------
-    d: d.question str
+    question: str
 
     Returns
     -------
@@ -177,7 +189,7 @@ def answer_question(d: Input):
     # TODO: Clean question text before passing
     # it to the model
     prediction = finder.get_answers(
-        question=d.question, top_k_retriever=3, top_k_reader=1
+        question=question, top_k_retriever=3, top_k_reader=1
     )
     # TODO: Filter out the answer if it is not reliable
     answer = prediction["answers"][0]["answer"]
@@ -188,7 +200,7 @@ def answer_question(d: Input):
     article_name = prediction["answers"][0]["meta"]["name"]
 
     return {
-        "question": d.question,
+        "question": question,
         "answer": answer,
         "score": score,
         "probability": probability,
@@ -196,3 +208,19 @@ def answer_question(d: Input):
         "pubDate": pub_date,
         "articleName": article_name,
     }
+
+#api PUT endpoint d.question: str
+@app.put("/predict")
+def answer_predict(d: Input):
+	return answer_question(d.question)
+
+
+# api POST endpoint handling WebhookRequest types of requests 
+@app.post("/webhook/")
+def answer_chatbot(wh_request: dict):
+    question = wh_request['queryResult']['queryText']
+    wh_answer = WEBHOOK_RESPONSE
+    #TO-DO define an external template to allow for easier parametrization of the answer
+    d = answer_question(question)
+    wh_answer['fulfillmentMessages'][0]['text']['text'][0] = d['answer']
+    return wh_answer
