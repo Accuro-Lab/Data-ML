@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 import sys
 # append Retrieval modules' folder path here
-sys.path.append('/mnt/c/Users/grace/Documents/accurolab/Data-ML/retrieval')
+sys.path.append('../retrieval')
 
 import get_data as ret
 import utils
@@ -144,7 +144,7 @@ def feed_documents_to_model(model_name="deepset/roberta-base-squad2-covid",
         retriever = TfidfRetriever(document_store=document_store)
     else:
         retriever = ElasticsearchRetriever(document_store=document_store)
-        document_store.update_embeddings(retriever)
+        #document_store.update_embeddings(retriever)
     # Reader provides interface to use the pre trained transformers
     # by default we're using the roberta
     reader = FARMReader(model_name_or_path=model_name, use_gpu=False)
@@ -164,7 +164,7 @@ app = FastAPI()
 # Start ElasticSearch docker first
 
 #  Should only execute at moment of load
-finder_in_memory = feed_documents_to_model(dev=True)
+#finder_in_memory = feed_documents_to_model(dev=True)
 finder_elastic = feed_documents_to_model(dev=False)
 
 
