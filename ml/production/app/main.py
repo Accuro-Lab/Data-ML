@@ -47,6 +47,8 @@ MANIFEST = {
 
 # Define webhook response format
 WEBHOOK_RESPONSE = {
+  "fukfillmentText": "Text message response",
+
   "fulfillmentMessages": [
     {
       "text": {
@@ -222,5 +224,6 @@ def answer_chatbot(wh_request: dict):
     wh_answer = WEBHOOK_RESPONSE
     #TO-DO define an external template to allow for easier parametrization of the answer
     d = answer_question(question)
+    wh_answer['fulfillmentText']=d['answer'] 
     wh_answer['fulfillmentMessages'][0]['text']['text'][0] = d['answer']
     return wh_answer
